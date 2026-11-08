@@ -23,10 +23,14 @@ def router_node(state: State):
     return {"ruta": decision.ruta, "motivo": decision.motivo}
 
 def agente_preventa(state: State):
-    return {"respuesta": f"Soy el agente de preventa. Recibí: {state['messages'][-1].content}. Pronto podré ayudarte con productos y compras."}
+    mensaje = state["messages"][-1].content
+    respuesta = llm.invoke(f"Eres un asistente de preventa de una tienda. Responde amablemente al cliente: {mensaje}")
+    return {"respuesta": respuesta.content}
 
 def agente_postventa(state: State):
-    return {"respuesta": f"Soy el agente de postventa. Recibí: {state['messages'][-1].content}. Pronto podré ayudarte con tu pedido."}
+    mensaje = state["messages"][-1].content
+    respuesta = llm.invoke(f"Eres un asistente de postventa de una tienda. Ayuda al cliente con su problema: {mensaje}")
+    return {"respuesta": respuesta.content}
 
 def respuesta_generica(state: State):
     return {"respuesta": "Este chat es para la tienda, lo siento pero no puedo ayudarte con temas ajenos al ecommerce."}
