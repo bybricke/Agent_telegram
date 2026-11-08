@@ -4,9 +4,19 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_google_genai import ChatGoogleGenerativeAI
-# from src.router.graph import graph
+from dotenv import load_dotenv
 from src.router.prompts import Decision, PROMPT_ROUTER
 import os
+
+load_dotenv()
+
+# Inicialización del modelo con clave explícita
+llm = ChatGoogleGenerativeAI(
+    model=os.getenv("MODELO", "gemini-1.5-flash"), 
+    temperature=0,
+    google_api_key=os.getenv("GOOGLE_API_KEY")
+)
+router_llm = llm.with_structured_output(Decision)
 
 class State(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -14,44 +24,34 @@ class State(TypedDict):
     motivo: str
     respuesta: str
 
-llm = ChatGoogleGenerativeAI(model=os.getenv("MODELO", "gemini-1.5-flash"), temperature=0)
-router_llm = llm.with_structured_output(Decision)
-
 def router_node(state: State):
     mensaje = state["messages"][-1].content
     decision = router_llm.invoke(f"{PROMPT_ROUTER}\n\nMensaje: {mensaje}")
+    print(f"[DEBUG] Mensaje: {mensaje} | Ruta elegida: {decision.ruta}")
     return {"ruta": decision.ruta, "motivo": decision.motivo}
 
 def agente_preventa(state: State):
     mensaje = state["messages"][-1].content
     prompt = (
-        "Eres un asistente de preventa. Responde de forma breve, amigable y profesional. "
-        "Usa emojis si ayuda, pero evita caracteres especiales extraños. "
-        "Si vas a usar negritas, usa formato Markdown simple."
-        f"Mensaje del cliente: {mensaje}"
+        "Eres un asistente de preventa de ecommerce. Responde breve y útil. "
+        f"Mensaje: {mensaje}"
     )
     respuesta = llm.invoke(prompt)
-    # Aseguramos que la respuesta sea un string (por si el LLM devuelve un objeto)
     texto = respuesta.content if hasattr(respuesta, 'content') else str(respuesta)
-    texto_limpio = texto.strip()
-    return {"respuesta": texto_limpio}
+    return {"respuesta": texto.strip()}
 
 def agente_postventa(state: State):
     mensaje = state["messages"][-1].content
     prompt = (
-        "Eres un asistente de postventa. Tu tono es profesional y servicial. "
-        "Responde directo al grano y evita formatos complejos que puedan romper la visualización. "
-        "Si vas a usar negritas, usa formato Markdown simple."
-        f"Mensaje del cliente: {mensaje}"
+        "Eres un asistente de postventa de ecommerce. Responde breve y útil sobre pedidos. "
+        f"Mensaje: {mensaje}"
     )
     respuesta = llm.invoke(prompt)
-    # Aseguramos que la respuesta sea un string (por si el LLM devuelve un objeto)
     texto = respuesta.content if hasattr(respuesta, 'content') else str(respuesta)
-    texto_limpio = texto.strip()
-    return {"respuesta": texto_limpio}
+    return {"respuesta": texto.strip()}
 
 def respuesta_generica(state: State):
-    return {"respuesta": "Este chat es para la tienda, lo siento pero no puedo ayudarte con temas ajenos al ecommerce."}
+    return {"respuesta": "Lo siento, solo puedo ayudarte con consultas sobre la tienda ecommerce."}
 
 def route_condition(state: State):
     return state["ruta"]
