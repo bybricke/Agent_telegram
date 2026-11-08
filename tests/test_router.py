@@ -1,23 +1,26 @@
-import pytest
 import json
+import pytest
 from src.router.graph import graph
 from langchain_core.messages import HumanMessage
 
-def cargar_casos():
-    with open("tests/casos_router.json", "r") as f:
+def load_casos():
+    with open('tests/casos_router.json', 'r') as f:
         return json.load(f)
 
-@pytest.mark.parametrize("caso", cargar_casos())
-def test_router_casos(caso):
-    result = graph.invoke({"messages": [HumanMessage(content=caso["mensaje"])]})
-    assert result["ruta"] == caso["esperado"]
+@pytest.mark.parametrize("caso", load_casos())
+def test_router(caso):
+    config = {"configurable": {"thread_id": "test"}}
+    res = graph.invoke({"messages": [HumanMessage(content=caso['mensaje'])]}, config=config)
+    assert res.get("ruta") == caso['esperado'], f"Fallo en: {caso['mensaje']}"
 
-def test_router_performance():
-    casos = cargar_casos()
+def test_minimo_aciertos():
+    casos = load_casos()
     aciertos = 0
     for caso in casos:
-        result = graph.invoke({"messages": [HumanMessage(content=caso["mensaje"])]})
-        if result["ruta"] == caso["esperado"]:
+        config = {"configurable": {"thread_id": "test"}}
+        res = graph.invoke({"messages": [HumanMessage(content=caso['mensaje'])]}, config=config)
+        if res.get("ruta") == caso['esperado']:
             aciertos += 1
-            
-    assert aciertos >= 13
+    
+    # Exigir al menos 13/15 (86.6%)
+    assert aciertos >= 13, f"Solo se obtuvieron {aciertos} de {len(casos)} aciertos"
