@@ -24,13 +24,27 @@ def router_node(state: State):
 
 def agente_preventa(state: State):
     mensaje = state["messages"][-1].content
-    respuesta = llm.invoke(f"Eres un asistente de preventa de una tienda. Responde amablemente al cliente: {mensaje}")
-    return {"respuesta": respuesta.content}
+    prompt = (
+        "Eres un asistente de preventa. Responde de forma breve, amigable y profesional. "
+        "Usa emojis si ayuda, pero evita caracteres especiales extraños. "
+        "Si vas a usar negritas, usa formato Markdown simple."
+        f"Mensaje del cliente: {mensaje}"
+    )
+    respuesta = llm.invoke(prompt)
+    texto_limpio = respuesta.content.strip()
+    return {"respuesta": texto_limpio}
 
 def agente_postventa(state: State):
     mensaje = state["messages"][-1].content
-    respuesta = llm.invoke(f"Eres un asistente de postventa de una tienda. Ayuda al cliente con su problema: {mensaje}")
-    return {"respuesta": respuesta.content}
+    prompt = (
+        "Eres un asistente de postventa. Tu tono es profesional y servicial. "
+        "Responde directo al grano y evita formatos complejos que puedan romper la visualización. "
+        "Si vas a usar negritas, usa formato Markdown simple."
+        f"Mensaje del cliente: {mensaje}"
+    )
+    respuesta = llm.invoke(prompt)
+    texto_limpio = respuesta.content.strip()
+    return {"respuesta": texto_limpio}
 
 def respuesta_generica(state: State):
     return {"respuesta": "Este chat es para la tienda, lo siento pero no puedo ayudarte con temas ajenos al ecommerce."}

@@ -6,6 +6,7 @@ import httpx
 from dotenv import load_dotenv
 from src.router.graph import graph
 from langchain_core.messages import HumanMessage
+import asyncio
 
 load_dotenv()
 
@@ -63,7 +64,6 @@ async def telegram_webhook(
     if not chat_id or not text:
         return {"ok": True}
 
-    # Procesar en background/async
     async def process_message(chat_id, text):
         try:
             config = {"configurable": {"thread_id": str(chat_id)}}
@@ -72,12 +72,15 @@ async def telegram_webhook(
             async with httpx.AsyncClient() as client:
                 await client.post(
                     f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                    json={"chat_id": chat_id, "text": result.get("respuesta")}
+                    json={
+                        "chat_id": chat_id, 
+                        "text": result.get("respuesta"),
+                        "parse_mode": "Markdown"
+                    }
                 )
         except Exception as e:
             logger.error(f"Error en procesamiento de webhook: {e}")
 
-    import asyncio
     asyncio.create_task(process_message(chat_id, text))
     
     return {"ok": True}
