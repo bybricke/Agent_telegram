@@ -31,7 +31,9 @@ def agente_preventa(state: State):
         f"Mensaje del cliente: {mensaje}"
     )
     respuesta = llm.invoke(prompt)
-    texto_limpio = respuesta.content.strip()
+    # Aseguramos que la respuesta sea un string (por si el LLM devuelve un objeto)
+    texto = respuesta.content if hasattr(respuesta, 'content') else str(respuesta)
+    texto_limpio = texto.strip()
     return {"respuesta": texto_limpio}
 
 def agente_postventa(state: State):
@@ -43,7 +45,9 @@ def agente_postventa(state: State):
         f"Mensaje del cliente: {mensaje}"
     )
     respuesta = llm.invoke(prompt)
-    texto_limpio = respuesta.content.strip()
+    # Aseguramos que la respuesta sea un string (por si el LLM devuelve un objeto)
+    texto = respuesta.content if hasattr(respuesta, 'content') else str(respuesta)
+    texto_limpio = texto.strip()
     return {"respuesta": texto_limpio}
 
 def respuesta_generica(state: State):
