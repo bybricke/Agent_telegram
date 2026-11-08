@@ -10,7 +10,6 @@ import os
 
 load_dotenv()
 
-# Inicialización del modelo con clave explícita
 llm = ChatGoogleGenerativeAI(
     model=os.getenv("MODELO", "gemini-1.5-flash"), 
     temperature=0,
@@ -30,25 +29,39 @@ def router_node(state: State):
     print(f"[DEBUG] Mensaje: {mensaje} | Ruta elegida: {decision.ruta}")
     return {"ruta": decision.ruta, "motivo": decision.motivo}
 
+def format_respuesta(respuesta):
+    texto = ""
+    if isinstance(respuesta, list):
+        for item in respuesta:
+            if isinstance(item, dict) and 'text' in item: texto += item['text']
+            elif hasattr(item, 'content'): texto += item.content
+            else: texto += str(item)
+    elif hasattr(respuesta, 'content'):
+        texto = respuesta.content
+    else:
+        texto = str(respuesta)
+    
+    # Limpieza final: extraer solo el texto si el formato es JSON complejo
+    texto_str = str(texto)
+    if texto_str.startswith("[{") and "'text':" in texto_str:
+        try:
+            data = eval(texto_str)
+            if isinstance(data, list) and len(data) > 0 and 'text' in data[0]:
+                texto_str = data[0]['text']
+        except:
+            pass
+    
+    return {"respuesta": texto_str.strip()}
+
 def agente_preventa(state: State):
     mensaje = state["messages"][-1].content
-    prompt = (
-        "Eres un asistente de preventa de ecommerce. Responde breve y útil. "
-        f"Mensaje: {mensaje}"
-    )
-    respuesta = llm.invoke(prompt)
-    texto = respuesta.content if hasattr(respuesta, 'content') else str(respuesta)
-    return {"respuesta": texto.strip()}
+    prompt = f"Eres asistente preventa de ecommerce. Responde breve y útil. Mensaje: {mensaje}"
+    return format_respuesta(llm.invoke(prompt))
 
 def agente_postventa(state: State):
     mensaje = state["messages"][-1].content
-    prompt = (
-        "Eres un asistente de postventa de ecommerce. Responde breve y útil sobre pedidos. "
-        f"Mensaje: {mensaje}"
-    )
-    respuesta = llm.invoke(prompt)
-    texto = respuesta.content if hasattr(respuesta, 'content') else str(respuesta)
-    return {"respuesta": texto.strip()}
+    prompt = f"Eres asistente postventa de ecommerce. Responde breve y útil sobre pedidos. Mensaje: {mensaje}"
+    return format_respuesta(llm.invoke(prompt))
 
 def respuesta_generica(state: State):
     return {"respuesta": "Lo siento, solo puedo ayudarte con consultas sobre la tienda ecommerce."}
