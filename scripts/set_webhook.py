@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 PUBLIC_URL = os.getenv("PUBLIC_URL")
 SECRET = os.getenv("TELEGRAM_SECRET")
@@ -21,3 +22,4 @@ async def set_webhook():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(set_webhook())
+
