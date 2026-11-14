@@ -85,5 +85,47 @@ builder.add_edge("preventa", END)
 builder.add_edge("postventa", END)
 builder.add_edge("generica", END)
 
+# Configuración de Memoria
+db_url = os.getenv("DATABASE_URL")
+pool = None
+memory_type = "ram"
+memory = None
+from langgraph.checkpoint.memory import MemorySaver
 memory = MemorySaver()
+
 graph = builder.compile(checkpointer=memory)
+
+async def setup_db():
+    global pool, memory, memory_type, graph
+    if db_url and memory_type == "ram":
+        try:
+            from psycopg_pool import AsyncConnectionPool
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+            
+            pool = AsyncConnectionPool(
+                conninfo=db_url,
+                min_size=1,
+                max_size=2,
+                check=AsyncConnectionPool.check_connection,
+                open=False
+            )
+            await pool.open()
+            
+            postgres_memory = AsyncPostgresSaver(pool)
+            await postgres_memory.setup()
+            
+            # Recompilamos el grafo con Postgres
+            memory = postgres_memory
+            memory_type = "postgres"
+            graph = builder.compile(checkpointer=memory)
+            print("[INFO] Base de datos conectada. Usando PostgresSaver.")
+        except Exception as e:
+            print(f"[ERROR] Error inicializando PostgresSaver, se mantendrá memoria RAM: {e}")
+
+async def close_db():
+    global pool
+    if pool is not None:
+        try:
+            await pool.close()
+        except Exception as e:
+            print(f"[ERROR] Error cerrando pool de Postgres: {e}")

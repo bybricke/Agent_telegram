@@ -4,7 +4,9 @@ import os
 import logging
 import httpx
 from dotenv import load_dotenv
-from src.router.graph import graph
+from contextlib import asynccontextmanager
+from src.router.graph import graph, setup_db, close_db, memory_type
+import src.router.graph as router_graph
 from langchain_core.messages import HumanMessage
 
 load_dotenv()
@@ -22,11 +24,18 @@ tags_metadata = [
     {"name": "telegram", "description": "Webhook de Telegram."},
 ]
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await setup_db()
+    yield
+    await close_db()
+
 app = FastAPI(
     title="Ecommerce Router API",
     description="API para gestionar el enrutamiento de consultas de un ecommerce.",
     version="1.0.0",
-    openapi_tags=tags_metadata
+    openapi_tags=tags_metadata,
+    lifespan=lifespan
 )
 
 class ChatRequest(BaseModel):
@@ -35,13 +44,13 @@ class ChatRequest(BaseModel):
 
 @app.get("/health", tags=["salud"])
 async def health():
-    return {"ok": True, "modelo": os.getenv("MODELO", "gemini-1.5-flash")}
+    return {"ok": True, "modelo": os.getenv("MODELO", "gemini-1.5-flash"), "memoria": router_graph.memory_type}
 
 @app.post("/chat", tags=["chat"])
 async def chat(request: ChatRequest):
     try:
         config = {"configurable": {"thread_id": request.user_id}}
-        result = graph.invoke({"messages": [HumanMessage(content=request.texto)]}, config=config)
+        result = await router_graph.graph.ainvoke({"messages": [HumanMessage(content=request.texto)]}, config=config)
         return result
     except Exception as e:
         logger.error(f"Error procesando chat: {e}")
@@ -67,7 +76,7 @@ async def telegram_webhook(
     async def process_message(chat_id, text):
         try:
             config = {"configurable": {"thread_id": str(chat_id)}}
-            result = graph.invoke({"messages": [HumanMessage(content=text)]}, config=config)
+            result = await router_graph.graph.ainvoke({"messages": [HumanMessage(content=text)]}, config=config)
             
             async with httpx.AsyncClient() as client:
                 await client.post(
