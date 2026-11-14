@@ -1,11 +1,11 @@
 from typing import Annotated, TypedDict, Literal
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
-from src.router.prompts import Decision, PROMPT_ROUTER
+from src.router.prompts import Decision, PROMPT_ROUTER, GENERICA_PROMPT, GENERICA_FALLBACK
 import os
 
 load_dotenv()
@@ -56,15 +56,34 @@ def format_respuesta(respuesta):
 def agente_preventa(state: State):
     mensaje = state["messages"][-1].content
     prompt = f"Eres asistente preventa de ecommerce. Responde breve y útil. Mensaje: {mensaje}"
-    return format_respuesta(llm.invoke(prompt))
+    # Extraemos el último mensaje generado por el sub-agente de preventa
+    respuesta_final = format_respuesta(llm.invoke(prompt))
+    return {"respuesta": respuesta_final["respuesta"], "messages": [AIMessage(content=respuesta_final["respuesta"])]}
 
 def agente_postventa(state: State):
     mensaje = state["messages"][-1].content
     prompt = f"Eres asistente postventa de ecommerce. Responde breve y útil sobre pedidos. Mensaje: {mensaje}"
-    return format_respuesta(llm.invoke(prompt))
+    respuesta_final = format_respuesta(llm.invoke(prompt))
+    return {"respuesta": respuesta_final["respuesta"], "messages": [AIMessage(content=respuesta_final["respuesta"])]}
 
 def respuesta_generica(state: State):
-    return {"respuesta": "Lo siento, solo puedo ayudarte con consultas sobre la tienda ecommerce."}
+    try:
+        with open("data/tienda.md", "r", encoding="utf-8") as f:
+            info_tienda = f.read()
+    except Exception:
+        info_tienda = "Información no disponible."
+        
+    prompt = GENERICA_PROMPT.format(info_tienda=info_tienda)
+    mensajes = [SystemMessage(content=prompt)] + state["messages"]
+    
+    try:
+        resultado = llm.invoke(mensajes)
+        respuesta = format_respuesta(resultado)
+    except Exception as e:
+        print(f"[ERROR] En respuesta_generica: {e}")
+        respuesta = {"respuesta": GENERICA_FALLBACK}
+        
+    return {"respuesta": respuesta["respuesta"], "messages": [AIMessage(content=respuesta["respuesta"])]}
 
 def route_condition(state: State):
     return state["ruta"]
